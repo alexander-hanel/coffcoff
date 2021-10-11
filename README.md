@@ -1,6 +1,6 @@
 # COFF Portable Executable Symbol Table Parser
 
-coff-coff is a COFF symbol table parser written for Portable Executables (PE). This project was created when became curious what attributes could be extracted from PE files compiled in GCC. The set of attributes isn't complete but the findings are still interesting.
+coff-coff is a COFF symbol table parser written for Portable Executables (PE). This project was created when I became interested in what attributes could be extracted from PE files compiled with GCC. The set of extracted attributes isn't complete but the findings are still interesting.
 
 ### COFF Symbol File Format
 To retrieve the offset to the COFF symbol table, we use `pe.FILE_HEADER.PointerToSymbolTable`. The ptr is the raw file offset to the symbol tables. To retrieve the number of symbols, we use `pe.FILE_HEADER.NumberOfSymbols`. If we were using the standard COFF header structure it would look like the following.
@@ -18,15 +18,15 @@ typedef struct _IMAGE_FILE_HEADER {
 } IMAGE_FILE_HEADER, *PIMAGE_FILE_HEADER;
 
 ```
-To explore the format, we will be using `pefile` and `hexdump`. The example file below is the `a.exe` from the `test_bin` directory. Following along at home is encouraged. The Python code below loads a PE file using pefile, extracts a pointer to the symbol table and prints the number of symbols.
+To explore the format, we will be using `pefile` and `hexdump`. The example file below is the `a.exe` from the `bin` directory. Following along at home is encouraged. The Python code below loads a PE file using pefile, extracts a pointer to the symbol table and prints the number of symbols.
 
 ```python
 >>> import pefile
 >>> import hexdump
->>> pe = pefile.PE("./test_bin/a.exe")
+>>> pe = pefile.PE("./bin/a.exe")
 >>> pe.FILE_HEADER
 <Structure: [IMAGE_FILE_HEADER] 0x84 0x0 Machine: 0x14C 0x86 0x2 NumberOfSections: 0xE 0x88 0x4 TimeDateStamp: 0x60F466A3 [Sun Jul 18 17:36:35 2021 UTC] 0x8C 0x8 PointerToSymbolTable: 0x6400 0x90 0xC NumberOfSymbols: 0x3F8 0x94 0x10 SizeOfOptionalHeader: 0xE0 0x96 0x12 Characteristics: 0x107>
->>> pe_data = open("./test_bin/a.exe", "rb").read()
+>>> pe_data = open("./bin/a.exe", "rb").read()
 # hexdump of the IMAGE_FILE_HEADER
 >>> hexdump.hexdump(pe_data[0x84:0xA0])
 00000000: 4C 01 0E 00 A3 66 F4 60  00 64 00 00 F8 03 00 00  L....f.`.d......
@@ -41,7 +41,7 @@ To explore the format, we will be using `pefile` and `hexdump`. The example file
 00000010: 67 01 63 72 74 65 78 65  2E 63 00 00 00 00 00 00  g.crtexe.c......
 ```
 
-The last couple of hexdump lines is a symbol table entry. Each entry is 18/0x12 bytes in length. A structure definition from [ReactOS](https://doxygen.reactos.org/da/db6/pecoff_8h_source.html#l00243) looks like the following.  
+The last two lines of hexdump is a symbol table entry. Each entry is 18 (0x12) bytes in length. A structure definition from [ReactOS](https://doxygen.reactos.org/da/db6/pecoff_8h_source.html#l00243) looks like the following.  
 
 ```C++
 typedef struct _IMAGE_SYMBOL {
@@ -95,7 +95,7 @@ There are multiple variations of calling `cls.from_buffer_copy` ([docs](https://
 
 #### COFF Symbol String Table
 
-The COFF symbol string table resides at the end of the symbol table. Since each entry in the symbol table is 18 bytes, it can be calculated  by multiplying the number of symbols by the size of the entry. The number of symbols resides in `pe.FILE_HEADER.NumberOfSymbols`. The following snippet shows calculating the offset to the symbol string table and dumping the first 32 bytes.
+The COFF symbol string table resides at the end of the symbol table. Since each entry in the symbol table is 18 bytes, it can be calculated by multiplying the number of symbols by the size of the entry. The number of symbols resides in `pe.FILE_HEADER.NumberOfSymbols`. The following snippet shows calculating the offset to the symbol string table and dumping the first 32 bytes.
 
 ```python
 # retrieve the number of NumberOfSymbols
@@ -136,7 +136,7 @@ Offset(h) 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
 While this might sound boring, its pretty cool because you can extract the original source code file names. The following snippet loads an executable, parses it and prints all the file names extracted from the file entities.
 
 ```python
-CC = COFFS("./test_bin/debug_symbols.exe")
+CC = COFFS("./bin/debug_symbols.exe")
 print(CC.file_tab)
 ```
 Output

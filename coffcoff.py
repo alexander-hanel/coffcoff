@@ -1,6 +1,6 @@
 """
 Name:       coffcoff.py
-Summary:    A python script for exploring COFF string tables. 
+Summary:    A python script for exploring COFF string tables.
 Author:     Alexaner Hanel
 Date:       20210924
 Version:    1.0
@@ -13,7 +13,7 @@ from collections import namedtuple
 
 UNKNOWN = 0x3737
 
-DEBUG = True
+DEBUG = False
 if DEBUG:
     import hexdump
 
@@ -219,12 +219,15 @@ class COFFS(object):
         # loop through symbol table
         for ci in range(0, self.offset_string_table, self.ENTRYSIZE):
             if aux_state:
+                temp_type = UNKNOWN
                 temp_aux = { "type_aux": None}
                 # this part might seem redundant but it allows for looping through each entry 18 bytes at a time
                 # rather skipping N*18 for each aux
                 aux_data = self.symbol_table[ci:ci + self.ENTRYSIZE]
                 # 5.5.1. Auxiliary Format 1: Function Definition
-                if p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_EXTERNAL and TYPEREP(p_data.type) == TYPEREP.IMAGE_SYM_DTYPE_FUNCTION:
+                if p_data.type in TYPEREP.__members__.values():
+                    temp_type = TYPEREP(p_data.type)
+                if p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_EXTERNAL and temp_type == TYPEREP.IMAGE_SYM_DTYPE_FUNCTION:
                     aux_temp = AUXSYMBOLFUNCDEF(aux_data)
                     temp_aux["type_aux"] = "AUX_FUNCTION_DEF"
                     temp_aux["tag_index"] = aux_temp.tag_index
@@ -238,8 +241,7 @@ class COFFS(object):
                     temp_aux["total_size"] =  aux_temp.total_size
                     temp_aux["pointer_to_line_number"] = aux_temp.pointer_to_line_number
                     temp_aux["pointer_to_next_function"] =  aux_temp.pointer_to_next_function
-                elif p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_STATIC and TYPEREP(
-                        p_data.type) == TYPEREP.IMAGE_SYM_TYPE_NULL:
+                elif p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_STATIC and temp_type == TYPEREP.IMAGE_SYM_TYPE_NULL:
                     if symbol_name.startswith(b"."):
                         temp_aux["type_aux"] = "AUX_SECTION_DEF"
                         aux_temp = AUXSYMBOLSECTIONDEF(aux_data)
@@ -264,16 +266,18 @@ class COFFS(object):
             # skip null entries
             if p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_NULL:
                 continue
+            if p_data.type in TYPEREP.__members__.values():
+                temp_type = TYPEREP(p_data.type)
             # parse out symbol string
             symbol_name = self.read_symbol_name(p_data, coff_data)
             # Described in [PE-COFF] 5.5.4. Auxiliary Format 4: Files
-            if p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_STATIC and TYPEREP(p_data.type) == TYPEREP.IMAGE_SYM_TYPE_NULL:
+            if p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_STATIC and temp_type == TYPEREP.IMAGE_SYM_TYPE_NULL:
                 # hack but I'm not seeing anything that can be used to identify just the section names
                 if symbol_name.startswith(b"."):
                     self.section_tab.append(symbol_name)
                 else:
                     self.func_static_tab.append(symbol_name)
-            elif p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_EXTERNAL and TYPEREP(p_data.type) == TYPEREP.IMAGE_SYM_DTYPE_FUNCTION:
+            elif p_data.storage_class == SCLASS.IMAGE_SYM_CLASS_EXTERNAL and temp_type == TYPEREP.IMAGE_SYM_DTYPE_FUNCTION:
                 self.func_tab.append(symbol_name)
             pp = pretty_symbol_entry(p_data, symbol_name)
             temp_dict = {"name": None, "type": None, "aux": None, "sclass": None, "type_aux": None}
@@ -313,14 +317,15 @@ def pretty_symbol_entry(coffentry, symbol_name):
         Symbol.section = SECNUMVALUES(coffentry.section_number)
     else:
         Symbol.section = coffentry.section_number
-    Symbol.type = TYPEREP(coffentry.type)
+    if coffentry.type in TYPEREP.__members__.values():
+        Symbol.type = TYPEREP(coffentry.type)
     Symbol.storage = SCLASS(coffentry.storage_class)
     Symbol.aux = coffentry.number_aux_symbols
     return Symbol
 
 def example():
     import pprint
-    CC = COFFS("./test_bin/debug_symbols.exe")
+    CC = COFFS("./bin/a.exe")
     print("Entries")
     pprint.pprint(CC.entries)
     print("File Tab")
